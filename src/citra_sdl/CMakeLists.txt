@@ -62,5 +62,5 @@ if (EMSCRIPTEN)
         -sEXIT_RUNTIME=0 -sINVOKE_RUN=0 -sMODULARIZE=0
         -sEXPORTED_RUNTIME_METHODS=callMain,FS,ENV
         -sFORCE_FILESYSTEM=1 -lidbfs.js
-        -sASSERTIONS=1 --profiling-funcs)
+        -fwasm-exceptions -sASSERTIONS=1 --profiling-funcs)
 endif()

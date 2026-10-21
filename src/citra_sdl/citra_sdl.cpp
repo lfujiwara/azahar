@@ -386,7 +386,7 @@ int LaunchSdlFrontend(int argc, char** argv) {
         }
     };
 
-    const auto emu_window{create_emu_window(fullscreen, false)};
+    auto emu_window{create_emu_window(fullscreen, false)};
     const bool use_secondary_window{
         Settings::values.layout_option.GetValue() == Settings::LayoutOption::SeparateWindows &&
         Settings::values.graphics_api.GetValue() != Settings::GraphicsAPI::Software};
@@ -482,8 +482,8 @@ int LaunchSdlFrontend(int argc, char** argv) {
     }
     // The browser owns the loop: run emulation until one frame is produced (or the time budget
     // runs out), then return so the canvas can be presented. Locals die when the main loop
-    // unwinds the stack without running destructors, so the window outlives this frame.
-    static EmuWindow_SDL2* web_window = emu_window.get();
+    // unwinds the stack (running destructors under wasm exceptions), so the window is released.
+    static EmuWindow_SDL2* web_window = emu_window.release();
     emscripten_set_main_loop(
         [] {
             auto& system = Core::System::GetInstance();

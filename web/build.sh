@@ -14,7 +14,7 @@ if [ ! -f "$BUILD/build.ninja" ]; then
     -DENABLE_LTO=OFF -DENABLE_DISCORD_RPC=OFF -DENABLE_MICROPROFILE=OFF \
     -DCITRA_USE_PRECOMPILED_HEADERS=OFF -DCITRA_WARNINGS_AS_ERRORS=OFF \
     -DENABLE_GENERIC=ON -DSDL_RENDER=ON \
-    -DCMAKE_C_FLAGS=-pthread "-DCMAKE_CXX_FLAGS=-pthread -Wno-c++11-narrowing"
+    "-DCMAKE_C_FLAGS=-pthread -fwasm-exceptions" "-DCMAKE_CXX_FLAGS=-pthread -fwasm-exceptions -Wno-c++11-narrowing"
 fi
 ninja -C "$BUILD" -k ${KEEP:-0} ${TARGET:-citra_sdl}
 mkdir -p web/out
