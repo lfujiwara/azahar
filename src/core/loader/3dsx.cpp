@@ -99,6 +99,7 @@ static u32 TranslateAddr(u32 addr, const THREEloadinfo* loadinfo, u32* offsets) 
 using Kernel::CodeSet;
 
 static THREEDSX_Error Load3DSXFile(Core::System& system, FileUtil::IOFileBase* file, u32 base_addr,
+                                   const std::string& argv0,
                                    std::shared_ptr<CodeSet>* out_codeset) {
     if (!file->IsOpen())
         return ERROR_FILE;
@@ -120,6 +121,9 @@ static THREEDSX_Error Load3DSXFile(Core::System& system, FileUtil::IOFileBase* f
         loadinfo.seg_sizes[2] < hdr.data_seg_size) {
         return ERROR_READ;
     }
+    // One extra data page after the program's data holds the argument list, like hbmenu passes.
+    const u32 arglist_offset = loadinfo.seg_sizes[2];
+    loadinfo.seg_sizes[2] += 0x1000;
     u32 offsets[2] = {loadinfo.seg_sizes[0], loadinfo.seg_sizes[0] + loadinfo.seg_sizes[1]};
     u32 n_reloc_tables = hdr.reloc_hdr_size / sizeof(u32);
     std::vector<u8> program_image(loadinfo.seg_sizes[0] + loadinfo.seg_sizes[1] +
@@ -225,6 +229,20 @@ static THREEDSX_Error Load3DSXFile(Core::System& system, FileUtil::IOFileBase* f
         }
     }
 
+    // libctru's crt0 starts with "b startup; _prm" followed by loader parameters; the argument
+    // list pointer (argc, then NUL-terminated strings) is at +0x18. Fill it with argv[0] so the
+    // app's working directory is its own folder, as when launched from the Homebrew Launcher.
+    if (hdr.code_seg_size >= 0x20 && std::memcmp(loadinfo.seg_ptrs[0] + 4, "_prm", 4) == 0 &&
+        argv0.size() + 1 + sizeof(u32) <= 0x1000) {
+        u8* arglist = loadinfo.seg_ptrs[2] + arglist_offset;
+        const u32 argc = 1;
+        std::memcpy(arglist, &argc, sizeof(argc));
+        std::memcpy(arglist + sizeof(argc), argv0.c_str(), argv0.size() + 1);
+        const u32 arglist_addr = loadinfo.seg_addrs[2] + arglist_offset;
+        std::memcpy(loadinfo.seg_ptrs[0] + 0x18, &arglist_addr, sizeof(arglist_addr));
+        LOG_INFO(Loader, "3DSX argv[0] = {}", argv0);
+    }
+
     // Create the CodeSet
     std::shared_ptr<CodeSet> code_set = system.Kernel().CreateCodeSet("", 0);
 
@@ -285,7 +303,19 @@ ResultStatus AppLoader_THREEDSX::Load(std::shared_ptr<Kernel::Process>& process)
         return ResultStatus::Error;
 
     std::shared_ptr<CodeSet> codeset;
-    if (Load3DSXFile(system, file.get(), Memory::PROCESS_IMAGE_VADDR, &codeset) != ERROR_NONE)
+    // argv[0] is the 3DSX's SD card path; outside the emulated SD card, assume the usual
+    // sdmc:/3ds/<name>/<name>.3dsx layout so the app looks for its data in its own folder.
+    const std::string sdmc_dir = FileUtil::GetUserPath(FileUtil::UserPath::SDMCDir);
+    std::string argv0;
+    if (filepath.starts_with(sdmc_dir)) {
+        argv0 = "sdmc:/" + filepath.substr(sdmc_dir.size());
+    } else {
+        const std::string name = filepath.substr(filepath.find_last_of("/\\") + 1);
+        const std::string stem = name.substr(0, name.rfind('.'));
+        argv0 = fmt::format("sdmc:/3ds/{}/{}", stem, name);
+    }
+    if (Load3DSXFile(system, file.get(), Memory::PROCESS_IMAGE_VADDR, argv0, &codeset) !=
+        ERROR_NONE)
         return ResultStatus::Error;
     codeset->name = filename;
 
