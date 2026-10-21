@@ -129,6 +129,11 @@ void SdlConfig::ReadValues() {
 
     // Core
     ReadSetting("Core", Settings::values.use_cpu_jit);
+    ReadSetting("Core", Settings::values.use_fastinterp);
+#ifdef __EMSCRIPTEN__
+    // No JIT can run in wasm; leaving it on silently selects DynCom instead of FastInterp.
+    Settings::values.use_cpu_jit = false;
+#endif
     ReadSetting("Core", Settings::values.cpu_clock_percentage);
 
     // Renderer
