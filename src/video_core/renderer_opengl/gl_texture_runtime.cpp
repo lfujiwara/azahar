@@ -10,6 +10,7 @@
 #include "video_core/renderer_opengl/gl_state.h"
 #include "video_core/renderer_opengl/gl_texture_mailbox.h"
 #include "video_core/renderer_opengl/gl_texture_runtime.h"
+#include "video_core/renderer_opengl/gl_vars.h"
 #include "video_core/renderer_opengl/pica_to_gl.h"
 
 namespace OpenGL {
@@ -104,7 +105,7 @@ static constexpr std::array<FormatTuple, 8> CUSTOM_TUPLES = {{
     glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(target, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-    if (!debug_name.empty()) {
+    if (!debug_name.empty() && !OpenGL::IsWebGL) {
         glObjectLabel(GL_TEXTURE, texture.handle, -1, debug_name.data());
     }
 
@@ -287,6 +288,19 @@ bool TextureRuntime::CopyTextures(Surface& source, Surface& dest,
     const GLenum dest_textarget =
         dest.texture_type == VideoCore::TextureType::CubeMap ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
 
+    if constexpr (IsWebGL) {
+        // No glCopyImageSubData on WebGL: a same-size nearest blit is equivalent.
+        for (const auto& copy : copies) {
+            const auto rect = [&](const VideoCore::Offset& o) {
+                return Common::Rectangle<u32>{o.x, o.y + copy.extent.height,
+                                              o.x + copy.extent.width, o.y};
+            };
+            BlitTextures(source, dest,
+                         {copy.src_level, copy.dst_level, copy.src_layer, copy.dst_layer,
+                          rect(copy.src_offset), rect(copy.dst_offset)});
+        }
+        return true;
+    }
     for (const auto& copy : copies) {
         glCopyImageSubData(source.Handle(), src_textarget, copy.src_level, copy.src_offset.x,
                            copy.src_offset.y, copy.src_layer, dest.Handle(), dest_textarget,
@@ -695,8 +709,12 @@ Framebuffer::~Framebuffer() = default;
 Sampler::Sampler(TextureRuntime&, VideoCore::SamplerParams params) {
     const GLenum mag_filter = PicaToGL::TextureMagFilterMode(params.mag_filter);
     const GLenum min_filter = PicaToGL::TextureMinFilterMode(params.min_filter, params.mip_filter);
-    const GLenum wrap_s = PicaToGL::WrapMode(params.wrap_s);
-    const GLenum wrap_t = PicaToGL::WrapMode(params.wrap_t);
+    // ponytail: WebGL has no clamp-to-border; edge clamping ignores the border color.
+    const auto wrap = [](GLenum mode) {
+        return IsWebGL && mode == GL_CLAMP_TO_BORDER ? GL_CLAMP_TO_EDGE : mode;
+    };
+    const GLenum wrap_s = wrap(PicaToGL::WrapMode(params.wrap_s));
+    const GLenum wrap_t = wrap(PicaToGL::WrapMode(params.wrap_t));
     const Common::Vec4f gl_color = PicaToGL::ColorRGBA8(params.border_color);
     const auto lod_min = static_cast<float>(params.lod_min);
     const auto lod_max = static_cast<float>(params.lod_max);
@@ -710,7 +728,9 @@ Sampler::Sampler(TextureRuntime&, VideoCore::SamplerParams params) {
     glSamplerParameteri(handle, GL_TEXTURE_WRAP_S, wrap_s);
     glSamplerParameteri(handle, GL_TEXTURE_WRAP_T, wrap_t);
 
-    glSamplerParameterfv(handle, GL_TEXTURE_BORDER_COLOR, gl_color.AsArray());
+    if (!IsWebGL) {
+        glSamplerParameterfv(handle, GL_TEXTURE_BORDER_COLOR, gl_color.AsArray());
+    }
 
     glSamplerParameterf(handle, GL_TEXTURE_MIN_LOD, lod_min);
     glSamplerParameterf(handle, GL_TEXTURE_MAX_LOD, lod_max);

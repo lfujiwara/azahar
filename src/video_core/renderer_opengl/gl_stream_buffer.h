@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include <tuple>
 #include "video_core/renderer_opengl/gl_resource_manager.h"
 
@@ -32,7 +34,17 @@ public:
 
     void Unmap(GLsizeiptr size);
 
+#ifdef __EMSCRIPTEN__
+    /// CPU copy of the buffer contents; WebGL has no persistent or unsynchronized mapping.
+    const u8* Shadow() const {
+        return shadow.data();
+    }
+#endif
+
 private:
+#ifdef __EMSCRIPTEN__
+    std::vector<u8> shadow;
+#endif
     OGLBuffer gl_buffer;
     GLenum gl_target;
 

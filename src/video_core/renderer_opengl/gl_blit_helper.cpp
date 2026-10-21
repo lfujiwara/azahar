@@ -9,6 +9,7 @@
 #include "video_core/renderer_opengl/gl_driver.h"
 #include "video_core/renderer_opengl/gl_state.h"
 #include "video_core/renderer_opengl/gl_texture_runtime.h"
+#include "video_core/renderer_opengl/gl_vars.h"
 
 #include "video_core/host_shaders/format_reinterpreter/d24s8_to_rgba8_frag.h"
 #include "video_core/host_shaders/format_reinterpreter/rgba4_to_rgb5a1_frag.h"
@@ -43,12 +44,36 @@ OGLSampler CreateSampler(GLenum filter) {
     return sampler;
 }
 
+// WebGL has neither explicit uniform locations nor glProgramUniform, so look up by name.
+template <typename... T>
+void SetUniform(GLuint program, const char* name, T... values) {
+    const GLint location = glGetUniformLocation(program, name);
+    const auto set = [&] {
+        if constexpr (sizeof...(T) == 1) {
+            IsWebGL ? glUniform1f(location, values...)
+                    : glProgramUniform1f(program, location, values...);
+        } else {
+            IsWebGL ? glUniform2f(location, values...)
+                    : glProgramUniform2f(program, location, values...);
+        }
+    };
+    if (!IsWebGL) {
+        set();
+        return;
+    }
+    GLint prev_program = 0;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &prev_program);
+    glUseProgram(program);
+    set();
+    glUseProgram(prev_program);
+}
+
 OGLProgram CreateProgram(std::string_view frag, std::string_view debug_name) {
     OGLProgram program;
     program.SetDebugName(debug_name);
     program.Create(HostShaders::FULL_SCREEN_TRIANGLE_VERT, frag);
-    glProgramUniform2f(program.handle, 0, 1.f, 1.f);
-    glProgramUniform2f(program.handle, 1, 0.f, 0.f);
+    SetUniform(program.handle, "tex_scale", 1.f, 1.f);
+    SetUniform(program.handle, "tex_offset", 0.f, 0.f);
     return program;
 }
 
@@ -277,7 +302,7 @@ void BlitHelper::FilterXbrz(Surface& surface, const VideoCore::TextureBlit& blit
     SCOPE_EXIT({ prev_state.Apply(); });
     state.texture_units[0].texture_2d = surface.Handle(0);
     state.texture_units[0].target = GL_TEXTURE_2D;
-    glProgramUniform1f(xbrz_program.handle, 2, static_cast<GLfloat>(surface.res_scale));
+    SetUniform(xbrz_program.handle, "scale", static_cast<GLfloat>(surface.res_scale));
     SetParams(xbrz_program, surface.RealExtent(false), blit.src_rect);
     Draw(xbrz_program, surface.Handle(), draw_fbo.handle, blit.dst_level, blit.dst_rect);
 }
@@ -293,11 +318,11 @@ void BlitHelper::FilterMMPX(Surface& surface, const VideoCore::TextureBlit& blit
 
 void BlitHelper::SetParams(OGLProgram& program, const VideoCore::Extent& src_extent,
                            Common::Rectangle<u32> src_rect) {
-    glProgramUniform2f(
-        program.handle, 0,
+    SetUniform(
+        program.handle, "tex_scale",
         static_cast<float>(src_rect.right - src_rect.left) / static_cast<float>(src_extent.width),
         static_cast<float>(src_rect.top - src_rect.bottom) / static_cast<float>(src_extent.height));
-    glProgramUniform2f(program.handle, 1,
+    SetUniform(program.handle, "tex_offset",
                        static_cast<float>(src_rect.left) / static_cast<float>(src_extent.width),
                        static_cast<float>(src_rect.bottom) / static_cast<float>(src_extent.height));
 }

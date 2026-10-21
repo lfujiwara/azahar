@@ -6,4 +6,9 @@
 
 namespace OpenGL {
 extern bool GLES;
+#ifdef __EMSCRIPTEN__
+constexpr bool IsWebGL = true; // WebGL2 (GLES 3.0 subset)
+#else
+constexpr bool IsWebGL = false;
+#endif
 }

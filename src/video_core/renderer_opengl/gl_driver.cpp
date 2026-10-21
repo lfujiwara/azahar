@@ -178,6 +178,11 @@ void Driver::CheckExtensionSupport() {
     intel_fragment_shader_ordering = GLAD_GL_INTEL_fragment_shader_ordering;
     blend_minmax_factor = GLAD_GL_AMD_blend_minmax_factor || GLAD_GL_NV_blend_minmax_factor;
     is_suitable = GLAD_GL_VERSION_4_3 || GLAD_GL_ES_VERSION_3_2;
+#ifdef __EMSCRIPTEN__
+    is_suitable = GLAD_GL_ES_VERSION_3_0;
+    clip_cull_distance = false;
+    ext_buffer_storage = arb_buffer_storage = arb_clear_texture = arb_get_texture_sub_image = false;
+#endif
 }
 
 void Driver::FindBugs() {
