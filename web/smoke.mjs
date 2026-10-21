@@ -25,12 +25,30 @@ const t0 = Date.now();
 await page.goto(`http://127.0.0.1:${process.env.PORT || 8302}/index.html?rom=${encodeURIComponent(rom)}&${extra}`);
 // HOLD=KeyA,KeyM: hold these keys for the second half of the run (screenshot taken while held)
 const hold = (process.env.HOLD || "").split(",").filter(Boolean);
-await page.waitForTimeout((hold.length ? seconds / 2 : seconds) * 1000);
+await page.waitForTimeout((hold.length || process.env.TOUCH ? seconds / 2 : seconds) * 1000);
+// TOUCH=x,y: hold the mouse down at canvas pixel (x, y) for the second half of the run
+const touch = process.env.TOUCH?.split(",").map(Number);
+if (touch && !hold.length) {
+  await page.waitForTimeout((seconds / 2) * 1000);
+  const box = await page.locator("#canvas").boundingBox();
+  await page.mouse.move(box.x + touch[0], box.y + touch[1]);
+  await page.mouse.down();
+  await page.waitForTimeout((seconds / 2) * 1000);
+}
 if (hold.length) {
   await page.locator("#canvas").focus();
   for (const k of hold) await page.keyboard.down(k);
   await page.waitForTimeout((seconds / 2) * 1000);
 }
+// Tick probe: median wall ms per main-loop tick over 2 s (budget is ~16.7 ms at 60 Hz).
+const tickMs = await page.evaluate(async () => {
+  const xs = [];
+  const id = setInterval(() => globalThis.azaharTickMs !== undefined && xs.push(globalThis.azaharTickMs), 7);
+  await new Promise((r) => setTimeout(r, 2000));
+  clearInterval(id);
+  xs.sort((a, b) => a - b);
+  return xs.length ? xs[xs.length >> 1] : null;
+});
 // Audio probe: wrap SDL's ScriptProcessor callback for 2 s and measure what it outputs.
 const audio = await page.evaluate(async () => {
   const n = window.Module?.SDL2?.audio?.scriptProcessorNode;
@@ -70,6 +88,6 @@ const stats = await page.evaluate(async (b64) => {
 }, png.toString("base64"));
 const fps = await page.evaluate(() => [window.azaharFps ?? null, window.azaharSpeed ?? null]);
 writeFileSync(`shots/${tag}.log`, lines.join("\n"));
-console.log(JSON.stringify({ tag, ms: Date.now() - t0, ...stats, fps, audio, logLines: lines.length }));
+console.log(JSON.stringify({ tag, ms: Date.now() - t0, ...stats, fps, tickMs, audio, logLines: lines.length }));
 console.log(lines.slice(-25).join("\n"));
 await browser.close();

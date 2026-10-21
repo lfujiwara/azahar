@@ -503,6 +503,8 @@ int LaunchSdlFrontend(int argc, char** argv) {
             if (web_window->FrameCount() != start_frame) {
                 web_window->Present();
             }
+            // Wall time spent emulating this tick, for headroom measurements from the page.
+            EM_ASM({ globalThis.azaharTickMs = $0; }, emscripten_get_now() - deadline + 50.0);
             if (!web_window->IsOpen()) {
                 emscripten_cancel_main_loop();
             }
