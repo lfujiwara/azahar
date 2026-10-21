@@ -108,6 +108,7 @@
         FS.writeFile("/home/web_user/.config/azahar-emu/sdl2-config.ini", ini + "\n");
         log("[web] ini:\n" + ini);
       }
+      if (params.get("stopAt")) ENV.AZAHAR_STOP_AT = params.get("stopAt");
       const extra = (params.get("args") || "").split(" ").filter(Boolean);
       Module.callMain([...extra, name]);
     },

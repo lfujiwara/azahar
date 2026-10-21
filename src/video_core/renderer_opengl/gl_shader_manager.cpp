@@ -17,6 +17,7 @@
 #include "video_core/renderer_opengl/gl_resource_manager.h"
 #include "video_core/renderer_opengl/gl_shader_disk_cache.h"
 #include "video_core/renderer_opengl/gl_shader_manager.h"
+#include "video_core/renderer_opengl/gl_vars.h"
 #include "video_core/renderer_opengl/gl_state.h"
 #include "video_core/shader/generator/glsl_fs_shader_gen.h"
 #include "video_core/shader/generator/glsl_shader_gen.h"
@@ -335,7 +336,8 @@ public:
 
         // Enable the geometry-shader only if we are actually doing per-fragment lighting
         // and care about proper quaternions. Otherwise just use standard vertex+fragment shaders.
-        const bool use_geometry_shader = !config.state.lighting_disable;
+        // WebGL has no geometry shaders: emit straight from the VS, like Vulkan without GS support.
+        const bool use_geometry_shader = !config.state.lighting_disable && !IsWebGL;
 
         res.use_clip_planes = profile.has_clip_planes;
         res.use_geometry_shader = use_geometry_shader;

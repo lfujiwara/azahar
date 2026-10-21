@@ -501,10 +501,8 @@ bool RasterizerOpenGL::SetupGeometryShader() {
     // Enable the quaternion fix-up geometry-shader only if we are actually doing per-fragment
     // lighting and care about proper quaternions. Otherwise just use standard vertex+fragment
     // shaders
-    if (regs.lighting.disable) {
+    if (regs.lighting.disable || IsWebGL) {
         curr_shader_manager->UseTrivialGeometryShader();
-    } else if (IsWebGL) {
-        return false; // no geometry shaders: fall back to software vertex processing
     } else {
         curr_shader_manager->UseFixedGeometryShader(regs);
     }

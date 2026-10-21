@@ -505,6 +505,15 @@ int LaunchSdlFrontend(int argc, char** argv) {
                 next_due += frames * frame_ms;
             }
             const u64 start_frame = web_window->FrameCount();
+            // AZAHAR_STOP_AT=<n>: freeze after n frames so renderers can be compared frame-exact.
+            static const u64 stop_at = [] {
+                const char* v = std::getenv("AZAHAR_STOP_AT");
+                return v ? std::strtoull(v, nullptr, 10) : ~0ull;
+            }();
+            if (start_frame >= stop_at) {
+                return;
+            }
+            frames = std::min<u64>(frames, stop_at - start_frame);
             const double deadline = emscripten_get_now() + 50.0;
             while (web_window->IsOpen() && web_window->FrameCount() < start_frame + frames &&
                    emscripten_get_now() < deadline) {
