@@ -416,6 +416,33 @@ GLuint Surface::CopyHandle() noexcept {
                                   DebugName(true));
     }
 
+    if constexpr (IsWebGL) {
+        // No glCopyImageSubData on WebGL: blit each level through a pair of scratch FBOs.
+        static OGLFramebuffer read_fbo, draw_fbo;
+        if (!read_fbo.handle) {
+            read_fbo.Create();
+            draw_fbo.Create();
+        }
+        const OpenGLState prev_state = OpenGLState::GetCurState();
+        OpenGLState state = prev_state;
+        state.scissor.enabled = false;
+        state.draw.read_framebuffer = read_fbo.handle;
+        state.draw.draw_framebuffer = draw_fbo.handle;
+        state.Apply();
+        for (u32 level = 0; level < levels; level++) {
+            const GLint width = GetScaledWidth() >> level;
+            const GLint height = GetScaledHeight() >> level;
+            glFramebufferTexture2D(GL_READ_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                                   Handle(1), level);
+            glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                                   copy_texture.handle, level);
+            glBlitFramebuffer(0, 0, width, height, 0, 0, width, height, GL_COLOR_BUFFER_BIT,
+                              GL_NEAREST);
+        }
+        prev_state.Apply();
+        return copy_texture.handle;
+    }
+
     for (u32 level = 0; level < levels; level++) {
         const u32 width = GetScaledWidth() >> level;
         const u32 height = GetScaledHeight() >> level;
