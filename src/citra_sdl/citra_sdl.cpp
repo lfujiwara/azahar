@@ -487,9 +487,26 @@ int LaunchSdlFrontend(int argc, char** argv) {
     emscripten_set_main_loop(
         [] {
             auto& system = Core::System::GetInstance();
+            // Pace to the 3DS refresh rate scaled by frame_limit (0 = unlimited) independent of
+            // the display's rAF rate.
+            static double next_due = 0.0;
+            const double now = emscripten_get_now();
+            const double limit = Settings::GetFrameLimit();
+            // Frames owed by wall time; a late tick runs two to catch up. 4 ms slack absorbs rAF
+            // jitter (a 60 Hz display ticks every 16.67 ms, the 3DS every 16.71 ms).
+            u64 frames = 1;
+            if (limit > 0.0) {
+                const double frame_ms = 1000.0 / 59.8261 * 100.0 / limit;
+                if (now + 4.0 < next_due) {
+                    return;
+                }
+                next_due = std::max(next_due, now - 2 * frame_ms);
+                frames = now + 4.0 >= next_due + frame_ms ? 2 : 1;
+                next_due += frames * frame_ms;
+            }
             const u64 start_frame = web_window->FrameCount();
             const double deadline = emscripten_get_now() + 50.0;
-            while (web_window->IsOpen() && web_window->FrameCount() == start_frame &&
+            while (web_window->IsOpen() && web_window->FrameCount() < start_frame + frames &&
                    emscripten_get_now() < deadline) {
                 const auto result = system.RunLoop();
                 if (result == Core::System::ResultStatus::ShutdownRequested) {
