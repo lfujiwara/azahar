@@ -12,10 +12,15 @@
 <body>
 <canvas id="canvas" width="400" height="480" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
 <div id="status">loading…</div>
+<div id="picker" hidden>
+  <label>Load a decrypted .3ds / .cci / .cxi / .3dsx / .elf: <input type="file" id="file"></label>
+  <span id="saved"></span>
+</div>
 <div id="log"></div>
 <script>
   const params = new URLSearchParams(location.search);
-  const rom = params.get("rom") || "roms/hello-world.3dsx";
+  // ?rom=<url> fetches a ROM; ?rom=idb/<name> boots one saved in browser storage; no ?rom shows the picker.
+  const rom = params.get("rom");
   const logEl = document.getElementById("log");
   window.azaharLog = [];
   const log = (s) => {
@@ -59,19 +64,45 @@
         });
       setInterval(window.azaharSync, 5000);
       addEventListener("pagehide", window.azaharSync);
-      const buf = new Uint8Array(await (await fetch(rom)).arrayBuffer());
-      const name = "/roms/" + rom.split("/").pop();
-      FS.mkdirTree("/roms");
-      FS.writeFile(name, buf);
-      log(`[web] wrote ${name} (${buf.length} bytes)`);
+      const saved = home + "/roms";
+      FS.mkdirTree(saved);
+      if (!rom) {
+        document.getElementById("picker").hidden = false;
+        document.getElementById("status").textContent = "pick a ROM";
+        document.getElementById("saved").innerHTML = FS.readdir(saved)
+          .filter((n) => !n.startsWith("."))
+          .map((n) => `<a href="?rom=idb/${encodeURIComponent(n)}">${n}</a>`)
+          .join(" ");
+        document.getElementById("file").onchange = async (e) => {
+          const f = e.target.files[0];
+          FS.writeFile(`${saved}/${f.name}`, new Uint8Array(await f.arrayBuffer()));
+          await window.azaharSync();
+          location.search = "?rom=idb/" + encodeURIComponent(f.name);
+        };
+        return;
+      }
+      let name;
+      if (rom.startsWith("idb/")) {
+        name = `${saved}/${rom.slice(4)}`;
+      } else {
+        const buf = new Uint8Array(await (await fetch(rom)).arrayBuffer());
+        name = "/roms/" + rom.split("/").pop();
+        FS.mkdirTree("/roms");
+        FS.writeFile(name, buf);
+        log(`[web] wrote ${name} (${buf.length} bytes)`);
+      }
       // ?set=Renderer.graphics_api=0,Core.use_cpu_jit=0 -> sdl2-config.ini overrides
       const sections = {};
-      for (const kv of (params.get("set") || "").split(",").filter(Boolean)) {
+      // Software renderer by default until the WebGL2 port of the GL renderer lands.
+      const overrides = ["Renderer.graphics_api=0", ...(params.get("set") || "").split(",")];
+      for (const kv of overrides.filter(Boolean)) {
         const [path, value] = kv.split("=");
         const [sec, key] = path.split(".");
-        (sections[sec] ||= []).push(`${key} = ${value}`);
+        (sections[sec] ||= {})[key] = value;
       }
-      const ini = Object.entries(sections).map(([k, v]) => `[${k}]\n${v.join("\n")}`).join("\n");
+      const ini = Object.entries(sections)
+        .map(([k, v]) => `[${k}]\n` + Object.entries(v).map(([a, b]) => `${a} = ${b}`).join("\n"))
+        .join("\n");
       if (ini) {
         FS.mkdirTree("/home/web_user/.config/azahar-emu");
         FS.writeFile("/home/web_user/.config/azahar-emu/sdl2-config.ini", ini + "\n");
