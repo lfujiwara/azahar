@@ -8,7 +8,7 @@ page.on("console", (m) => lines.push(m.text()));
 await page.goto(`http://127.0.0.1:${process.env.PORT || 8302}/index.html`);
 await page.waitForSelector("#picker:not([hidden])");
 await page.setInputFiles("#file", process.argv[2] || "roms/hello-world.3dsx");
-await page.waitForURL(/rom=idb/);
+await page.waitForURL(/rom=idb/, { timeout: 120000 });
 await page.waitForTimeout(8000);
 await page.locator("#canvas").screenshot({ path: "shots/picked.png" });
 const booted = lines.some((l) => l.includes("Azahar Version"));
