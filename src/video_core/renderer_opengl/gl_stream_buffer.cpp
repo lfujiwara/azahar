@@ -16,6 +16,12 @@ namespace OpenGL {
 OGLStreamBuffer::OGLStreamBuffer(Driver& driver, GLenum target, GLsizeiptr size,
                                  bool prefer_coherent)
     : gl_target(target), buffer_size(size) {
+#ifdef __EMSCRIPTEN__
+    if (gl_target == GL_TEXTURE_BUFFER) {
+        gl_target = GL_COPY_WRITE_BUFFER;
+    }
+    shadow.resize(size);
+#endif
     gl_buffer.Create();
     glBindBuffer(gl_target, gl_buffer.handle);
 
@@ -66,12 +72,19 @@ std::tuple<u8*, GLintptr, bool> OGLStreamBuffer::Map(GLsizeiptr size, GLintptr a
     if (buffer_pos + size > buffer_size) {
         buffer_pos = 0;
         invalidate = true;
+#ifdef __EMSCRIPTEN__
+        glBindBuffer(gl_target, gl_buffer.handle);
+        glBufferData(gl_target, buffer_size, nullptr, GL_STREAM_DRAW);
+#endif
 
         if (persistent) {
             glUnmapBuffer(gl_target);
         }
     }
 
+#ifdef __EMSCRIPTEN__
+    return std::make_tuple(shadow.data() + buffer_pos, buffer_pos, invalidate);
+#endif
     if (invalidate || !persistent) {
         MICROPROFILE_SCOPE(OpenGL_StreamBuffer);
         GLbitfield flags = GL_MAP_WRITE_BIT | (persistent ? GL_MAP_PERSISTENT_BIT : 0) |
@@ -87,6 +100,16 @@ std::tuple<u8*, GLintptr, bool> OGLStreamBuffer::Map(GLsizeiptr size, GLintptr a
 
 void OGLStreamBuffer::Unmap(GLsizeiptr size) {
     ASSERT(size <= mapped_size);
+#ifdef __EMSCRIPTEN__
+    if (size > 0) {
+        if (gl_target == GL_COPY_WRITE_BUFFER) {
+            glBindBuffer(gl_target, gl_buffer.handle);
+        }
+        glBufferSubData(gl_target, buffer_pos, size, shadow.data() + buffer_pos);
+    }
+    buffer_pos += size;
+    return;
+#endif
 
     if (!coherent && size > 0) {
         glFlushMappedBufferRange(gl_target, buffer_pos - mapped_offset, size);

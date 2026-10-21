@@ -11,6 +11,7 @@
 #include "core/loader/loader.h"
 #include "video_core/pica/pica_core.h"
 #include "video_core/renderer_opengl/gl_rasterizer.h"
+#include "video_core/renderer_opengl/gl_vars.h"
 #include "video_core/renderer_opengl/pica_to_gl.h"
 #include "video_core/renderer_opengl/renderer_opengl.h"
 #include "video_core/shader/generator/shader_gen.h"
@@ -65,6 +66,9 @@ GLenum MakeAttributeType(Pica::PipelineRegs::VertexAttributeFormat format) {
 }
 
 [[nodiscard]] GLsizeiptr TextureBufferSize(const Driver& driver, bool is_lf) {
+#ifdef __EMSCRIPTEN__
+    return TEXTURE_BUFFER_SIZE;
+#endif
     // Use the smallest texel size from the texel views
     // which corresponds to GL_RG32F
     GLint max_texel_buffer_size;
@@ -78,6 +82,37 @@ GLenum MakeAttributeType(Pica::PipelineRegs::VertexAttributeFormat format) {
 
     return candidate;
 }
+
+#ifdef __EMSCRIPTEN__
+constexpr GLsizei LUT_ROW_TEXELS = 1024; // must match texelFetchLut in gl_shader_util.cpp
+
+void CreateLutTexture(GLuint tex, GLenum unit, GLenum format, GLsizei texel_size) {
+    glActiveTexture(unit);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexStorage2D(GL_TEXTURE_2D, 1, format, LUT_ROW_TEXELS,
+                   TEXTURE_BUFFER_SIZE / (LUT_ROW_TEXELS * texel_size));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glActiveTexture(GL_TEXTURE15); // keep later unit-less glBindTexture calls off the LUT units
+}
+
+// Copies the rows of a LUT stream buffer covering [begin, end) bytes into its 2D texture.
+void UploadLutRows(GLuint tex, GLenum unit, GLenum format, GLsizei texel_size, const u8* data,
+                   std::size_t begin, std::size_t end) {
+    if (begin == end) {
+        return;
+    }
+    const std::size_t row_bytes = LUT_ROW_TEXELS * texel_size;
+    const std::size_t row0 = begin / row_bytes;
+    const std::size_t row1 = (end + row_bytes - 1) / row_bytes;
+    glActiveTexture(unit);
+    glBindTexture(GL_TEXTURE_2D, tex);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, static_cast<GLint>(row0), LUT_ROW_TEXELS,
+                    static_cast<GLsizei>(row1 - row0), format == GL_RG32F ? GL_RG : GL_RGBA,
+                    GL_FLOAT, data + row0 * row_bytes);
+    glActiveTexture(GL_TEXTURE15);
+}
+#endif
 
 } // Anonymous namespace
 
@@ -151,12 +186,21 @@ RasterizerOpenGL::RasterizerOpenGL(Memory::MemorySystem& memory, Pica::PicaCore&
     state.texture_buffer_lut_rg.texture_buffer = texture_buffer_lut_rg.handle;
     state.texture_buffer_lut_rgba.texture_buffer = texture_buffer_lut_rgba.handle;
     state.Apply();
+#ifdef __EMSCRIPTEN__
+    CreateLutTexture(texture_buffer_lut_lf.handle, TextureUnits::TextureBufferLUT_LF.Enum(),
+                     GL_RG32F, 8);
+    CreateLutTexture(texture_buffer_lut_rg.handle, TextureUnits::TextureBufferLUT_RG.Enum(),
+                     GL_RG32F, 8);
+    CreateLutTexture(texture_buffer_lut_rgba.handle, TextureUnits::TextureBufferLUT_RGBA.Enum(),
+                     GL_RGBA32F, 16);
+#else
     glActiveTexture(TextureUnits::TextureBufferLUT_LF.Enum());
     glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, texture_lf_buffer.GetHandle());
     glActiveTexture(TextureUnits::TextureBufferLUT_RG.Enum());
     glTexBuffer(GL_TEXTURE_BUFFER, GL_RG32F, texture_buffer.GetHandle());
     glActiveTexture(TextureUnits::TextureBufferLUT_RGBA.Enum());
     glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, texture_buffer.GetHandle());
+#endif
 
     // Bind index buffer for hardware shader path
     state.draw.vertex_array = hw_vao.handle;
@@ -459,6 +503,8 @@ bool RasterizerOpenGL::SetupGeometryShader() {
     // shaders
     if (regs.lighting.disable) {
         curr_shader_manager->UseTrivialGeometryShader();
+    } else if (IsWebGL) {
+        return false; // no geometry shaders: fall back to software vertex processing
     } else {
         curr_shader_manager->UseFixedGeometryShader(regs);
     }
@@ -911,7 +957,9 @@ void RasterizerOpenGL::SyncAndUploadLUTsLF() {
     }
 
     std::size_t bytes_used = 0;
+    #ifndef __EMSCRIPTEN__
     glBindBuffer(GL_TEXTURE_BUFFER, texture_lf_buffer.GetHandle());
+#endif
     const auto [buffer, offset, invalidate] =
         texture_lf_buffer.Map(max_size, sizeof(Common::Vec4f));
 
@@ -949,6 +997,10 @@ void RasterizerOpenGL::SyncAndUploadLUTsLF() {
     }
 
     texture_lf_buffer.Unmap(bytes_used);
+#ifdef __EMSCRIPTEN__
+    UploadLutRows(texture_buffer_lut_lf.handle, TextureUnits::TextureBufferLUT_LF.Enum(), GL_RG32F,
+                  8, texture_lf_buffer.Shadow(), offset, offset + bytes_used);
+#endif
 }
 
 void RasterizerOpenGL::SyncAndUploadLUTs() {
@@ -962,7 +1014,9 @@ void RasterizerOpenGL::SyncAndUploadLUTs() {
     }
 
     std::size_t bytes_used = 0;
+    #ifndef __EMSCRIPTEN__
     glBindBuffer(GL_TEXTURE_BUFFER, texture_buffer.GetHandle());
+#endif
     const auto [buffer, offset, invalidate] = texture_buffer.Map(max_size, sizeof(Common::Vec4f));
 
     if (invalidate) {
@@ -1022,6 +1076,12 @@ void RasterizerOpenGL::SyncAndUploadLUTs() {
     pica.proctex.table_dirty = 0;
 
     texture_buffer.Unmap(bytes_used);
+#ifdef __EMSCRIPTEN__
+    UploadLutRows(texture_buffer_lut_rg.handle, TextureUnits::TextureBufferLUT_RG.Enum(), GL_RG32F,
+                  8, texture_buffer.Shadow(), offset, offset + bytes_used);
+    UploadLutRows(texture_buffer_lut_rgba.handle, TextureUnits::TextureBufferLUT_RGBA.Enum(),
+                  GL_RGBA32F, 16, texture_buffer.Shadow(), offset, offset + bytes_used);
+#endif
 }
 
 void RasterizerOpenGL::UploadUniforms(bool accelerate_draw) {

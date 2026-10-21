@@ -22,7 +22,7 @@ const lines = [];
 page.on("console", (m) => lines.push(m.text()));
 page.on("pageerror", (e) => lines.push("[pageerror] " + e.message));
 const t0 = Date.now();
-await page.goto(`http://127.0.0.1:8302/index.html?rom=${encodeURIComponent(rom)}&${extra}`);
+await page.goto(`http://127.0.0.1:${process.env.PORT || 8302}/index.html?rom=${encodeURIComponent(rom)}&${extra}`);
 await page.waitForTimeout(seconds * 1000);
 const canvas = page.locator("#canvas");
 const png = await canvas.screenshot();

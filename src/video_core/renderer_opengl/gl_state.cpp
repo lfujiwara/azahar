@@ -8,6 +8,12 @@
 
 namespace OpenGL {
 
+#ifdef __EMSCRIPTEN__
+constexpr GLenum LUT_TARGET = GL_TEXTURE_2D; // LUTs are 2D textures on WebGL
+#else
+constexpr GLenum LUT_TARGET = GL_TEXTURE_BUFFER;
+#endif
+
 OpenGLState OpenGLState::cur_state;
 
 OpenGLState::OpenGLState() {
@@ -223,20 +229,20 @@ void OpenGLState::Apply() const {
     // Texture buffer LUTs
     if (texture_buffer_lut_lf.texture_buffer != cur_state.texture_buffer_lut_lf.texture_buffer) {
         glActiveTexture(TextureUnits::TextureBufferLUT_LF.Enum());
-        glBindTexture(GL_TEXTURE_BUFFER, texture_buffer_lut_lf.texture_buffer);
+        glBindTexture(LUT_TARGET, texture_buffer_lut_lf.texture_buffer);
     }
 
     // Texture buffer LUTs
     if (texture_buffer_lut_rg.texture_buffer != cur_state.texture_buffer_lut_rg.texture_buffer) {
         glActiveTexture(TextureUnits::TextureBufferLUT_RG.Enum());
-        glBindTexture(GL_TEXTURE_BUFFER, texture_buffer_lut_rg.texture_buffer);
+        glBindTexture(LUT_TARGET, texture_buffer_lut_rg.texture_buffer);
     }
 
     // Texture buffer LUTs
     if (texture_buffer_lut_rgba.texture_buffer !=
         cur_state.texture_buffer_lut_rgba.texture_buffer) {
         glActiveTexture(TextureUnits::TextureBufferLUT_RGBA.Enum());
-        glBindTexture(GL_TEXTURE_BUFFER, texture_buffer_lut_rgba.texture_buffer);
+        glBindTexture(LUT_TARGET, texture_buffer_lut_rgba.texture_buffer);
     }
 
     // Color buffer
