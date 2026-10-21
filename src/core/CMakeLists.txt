@@ -568,6 +568,8 @@ endif()
 if (NOT MSVC)
     target_compile_definitions(citra_core PUBLIC HAVE_FASTINTERP)
     target_sources(citra_core PRIVATE
+        arm/dynarmic/arm_tick_counts.cpp
+        arm/dynarmic/arm_tick_counts.h
         arm/fastinterp/fastinterp.cpp
         arm/fastinterp/fastinterp.h
         arm/fastinterp/fastinterp_cache.h

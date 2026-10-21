@@ -113,7 +113,7 @@ void RendererOpenGL::SwapBuffers() {
     PrepareRendertarget();
     RenderScreenshot();
     isSecondaryWindow = false;
-#ifdef HAVE_LIBRETRO
+#if defined(HAVE_LIBRETRO) || defined(__EMSCRIPTEN__)
     DrawScreens(render_window.GetFramebufferLayout(), false);
     render_window.SwapBuffers();
 #else

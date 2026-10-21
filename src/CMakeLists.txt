@@ -201,6 +201,10 @@ if (ENABLE_TESTS)
     add_subdirectory(tests)
 endif()
 
+if (ENABLE_SDL2_FRONTEND)
+    add_subdirectory(citra_sdl)
+endif()
+
 if (ENABLE_QT)
     add_subdirectory(citra_qt)
 endif()

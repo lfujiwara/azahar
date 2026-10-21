@@ -98,6 +98,8 @@ void SetCurrentThreadName(const char* name) {
     pthread_set_name_np(pthread_self(), name);
 #elif defined(__NetBSD__)
     pthread_setname_np(pthread_self(), "%s", (void*)name);
+#elif defined(__EMSCRIPTEN__)
+    static_cast<void>(name);
 #elif defined(__linux__)
     // Linux limits thread names to 15 characters and will outright reject any
     // attempt to set a longer name with ERANGE.

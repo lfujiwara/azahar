@@ -1,0 +1,44 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Azahar Web</title>
+<style>
+  body { margin: 0; background: #111; color: #ccc; font: 13px monospace; }
+  canvas { display: block; margin: 0 auto; background: #000; }
+  #log { white-space: pre-wrap; height: 30vh; overflow: auto; padding: 4px 8px; }
+</style>
+</head>
+<body>
+<canvas id="canvas" width="400" height="480" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+<div id="status">loading…</div>
+<div id="log"></div>
+<script>
+  const params = new URLSearchParams(location.search);
+  const rom = params.get("rom") || "roms/hello-world.3dsx";
+  const logEl = document.getElementById("log");
+  window.azaharLog = [];
+  const log = (s) => {
+    window.azaharLog.push(s);
+    console.log(s);
+    if (window.azaharLog.length < 2000) logEl.textContent += s + "\n";
+  };
+  var Module = {
+    canvas: document.getElementById("canvas"),
+    print: log,
+    printErr: log,
+    setStatus: (s) => (document.getElementById("status").textContent = s),
+    async onRuntimeInitialized() {
+      const buf = new Uint8Array(await (await fetch(rom)).arrayBuffer());
+      const name = "/roms/" + rom.split("/").pop();
+      FS.mkdirTree("/roms");
+      FS.writeFile(name, buf);
+      log(`[web] wrote ${name} (${buf.length} bytes)`);
+      const extra = (params.get("args") || "").split(" ").filter(Boolean);
+      Module.callMain([...extra, name]);
+    },
+  };
+</script>
+<script src="out/azahar.js"></script>
+</body>
+</html>

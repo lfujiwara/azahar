@@ -131,6 +131,9 @@ if ("x86_64" IN_LIST ARCHITECTURE OR "arm64" IN_LIST ARCHITECTURE)
         add_subdirectory(dynarmic EXCLUDE_FROM_ALL)
     endif()
 endif()
+if (NOT TARGET tsl::robin_map)
+    add_subdirectory(dynarmic/externals/robin-map EXCLUDE_FROM_ALL)
+endif()
 
 # getopt
 if (MSVC)
@@ -331,6 +334,11 @@ else()
     target_include_directories(ssl INTERFACE ./libressl/include)
     target_disable_warnings(ssl)
     target_compile_definitions(ssl PRIVATE -DHAVE_INET_NTOP)
+    if (EMSCRIPTEN)
+        # libressl has no arc4random hooks for Emscripten; its Linux ones work on musl + getentropy.
+        set_source_files_properties(libressl/crypto/compat/arc4random.c
+            DIRECTORY libressl/crypto PROPERTIES COMPILE_DEFINITIONS __linux__)
+    endif()
     get_directory_property(OPENSSL_LIBRARIES
         DIRECTORY libressl
         DEFINITION OPENSSL_LIBS)
