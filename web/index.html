@@ -34,6 +34,19 @@
       FS.mkdirTree("/roms");
       FS.writeFile(name, buf);
       log(`[web] wrote ${name} (${buf.length} bytes)`);
+      // ?set=Renderer.graphics_api=0,Core.use_cpu_jit=0 -> sdl2-config.ini overrides
+      const sections = {};
+      for (const kv of (params.get("set") || "").split(",").filter(Boolean)) {
+        const [path, value] = kv.split("=");
+        const [sec, key] = path.split(".");
+        (sections[sec] ||= []).push(`${key} = ${value}`);
+      }
+      const ini = Object.entries(sections).map(([k, v]) => `[${k}]\n${v.join("\n")}`).join("\n");
+      if (ini) {
+        FS.mkdirTree("/home/web_user/.config/azahar-emu");
+        FS.writeFile("/home/web_user/.config/azahar-emu/sdl2-config.ini", ini + "\n");
+        log("[web] ini:\n" + ini);
+      }
       const extra = (params.get("args") || "").split(" ").filter(Boolean);
       Module.callMain([...extra, name]);
     },

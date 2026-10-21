@@ -12,6 +12,9 @@ mkdirSync("shots", { recursive: true });
 
 const browser = await chromium.launch({
   headless: true,
+  executablePath:
+    process.env.CHROME ||
+    `${process.env.HOME}/Library/Caches/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-mac-arm64/chrome-headless-shell`,
   args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
 });
 const page = await browser.newPage({ viewport: { width: 800, height: 1000 } });

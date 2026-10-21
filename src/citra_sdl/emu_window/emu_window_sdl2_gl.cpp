@@ -72,8 +72,12 @@ EmuWindow_SDL2_GL::EmuWindow_SDL2_GL(Core::System& system_, bool fullscreen, boo
     SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 8);
     SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 0);
+#ifdef __EMSCRIPTEN__
+    Settings::values.use_gles = true;
+#else
     // Enable context sharing for the shared context
     SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
+#endif
     // Enable vsync
     SDL_GL_SetSwapInterval(1);
     // Enable debug context

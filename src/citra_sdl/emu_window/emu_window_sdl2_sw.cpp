@@ -101,8 +101,9 @@ void EmuWindow_SDL2_SW::Present() {
 SDL_Surface* EmuWindow_SDL2_SW::LoadFramebuffer(VideoCore::ScreenId screen_id) {
     const auto& renderer = static_cast<SwRenderer::RendererSoftware&>(system.GPU().Renderer());
     const auto& info = renderer.Screen(screen_id);
-    const int width = static_cast<int>(info.width);
-    const int height = static_cast<int>(info.height);
+    // ScreenInfo is column-major portrait, which reads as row-major landscape.
+    const int width = static_cast<int>(info.height);
+    const int height = static_cast<int>(info.width);
     SDL_Surface* surface =
         SDL_CreateRGBSurfaceWithFormat(0, width, height, 0, SDL_PIXELFORMAT_ABGR8888);
     SDL_LockSurface(surface);

@@ -7,6 +7,9 @@
 #include <string>
 #define SDL_MAIN_HANDLED
 #include <SDL.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include "citra_sdl/emu_window/emu_window_sdl2.h"
 #include "common/logging/log.h"
 #include "common/scm_rev.h"
@@ -248,6 +251,10 @@ void EmuWindow_SDL2::UpdateFramerateCounter() {
                         Common::g_scm_branch, Common::g_scm_desc, results.game_fps,
                         results.emulation_speed * 100.0f);
         SDL_SetWindowTitle(render_window, title.c_str());
+#ifdef __EMSCRIPTEN__
+        EM_ASM({ globalThis.azaharFps = { fps: $0, speed: $1 }; }, results.game_fps,
+               results.emulation_speed * 100.0);
+#endif
         last_time = current_time;
     }
 }
