@@ -327,6 +327,29 @@ int LaunchSdlFrontend(int argc, char** argv) {
         return -1;
     }
 
+    // A CIA can't be booted in place: install it (once), then boot the installed title.
+    if (filepath.ends_with(".cia")) {
+        const auto infos = Service::AM::GetCIAInfos(filepath);
+        if (infos.Failed()) {
+            LOG_CRITICAL(Frontend, "Failed to read CIA {}", filepath);
+            return -1;
+        }
+        const u64 tid = infos->first.tid;
+        const auto media_type = Service::AM::GetTitleMediaType(tid);
+        std::string content = Service::AM::GetTitleContentPath(media_type, tid);
+        if (!FileUtil::Exists(content)) {
+            LOG_INFO(Frontend, "Installing CIA {}", filepath);
+            if (Service::AM::InstallCIA(filepath, [](std::size_t written, std::size_t total) {}) !=
+                Service::AM::InstallStatus::Success) {
+                LOG_CRITICAL(Frontend, "Failed to install CIA {}", filepath);
+                return -1;
+            }
+            content = Service::AM::GetTitleContentPath(media_type, tid);
+        }
+        LOG_INFO(Frontend, "Booting installed title {:016X} from {}", tid, content);
+        filepath = content;
+    }
+
     if (!movie_record.empty() && !movie_play.empty()) {
         LOG_CRITICAL(Frontend, "Cannot both play and record a movie");
         return -1;
