@@ -49,6 +49,15 @@
         return n;
       };
       log(`[web] persisted files: ${count(home)}`);
+      // ?sdmc=3ds/app/data.bin,...: copy files from web/sdmc/ onto the emulated SD card (if missing)
+      for (const rel of (params.get("sdmc") || "").split(",").filter(Boolean)) {
+        const dst = home + "/.local/share/azahar-emu/sdmc/" + rel;
+        if (FS.analyzePath(dst).exists) continue;
+        const data = new Uint8Array(await (await fetch("sdmc/" + rel)).arrayBuffer());
+        FS.mkdirTree(dst.slice(0, dst.lastIndexOf("/")));
+        FS.writeFile(dst, data);
+        log(`[web] sdmc ${rel} (${data.length} bytes)`);
+      }
       // libctru's ndspInit refuses to start without a DSP firmware file; HLE audio ignores its contents.
       const dspfirm = home + "/.local/share/azahar-emu/sdmc/3ds/dspfirm.cdc";
       if (!FS.analyzePath(dspfirm).exists) {
