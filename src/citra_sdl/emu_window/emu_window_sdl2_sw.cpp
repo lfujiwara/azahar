@@ -86,7 +86,7 @@ void EmuWindow_SDL2_SW::Present() {
                               static_cast<int>(dst_rect.GetWidth()),
                               static_cast<int>(dst_rect.GetHeight())};
             SDL_Surface* screen = LoadFramebuffer(screen_id);
-            SDL_BlitSurface(screen, nullptr, window_surface, &sdl_rect);
+            SDL_BlitScaled(screen, nullptr, window_surface, &sdl_rect);
             SDL_FreeSurface(screen);
         };
 

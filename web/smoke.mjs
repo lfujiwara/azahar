@@ -23,6 +23,15 @@ page.on("console", (m) => lines.push(m.text()));
 page.on("pageerror", (e) => lines.push("[pageerror] " + e.message + "\n" + (e.stack || "").split("\n").slice(0, 12).join("\n")));
 const t0 = Date.now();
 await page.goto(`http://127.0.0.1:${process.env.PORT || 8302}/index.html?rom=${encodeURIComponent(rom)}&${extra}`);
+// SEQ=8000:KeyA:150,10000:ArrowLeft:2000: tap/hold keys at ms offsets after load (runs alongside the wait)
+for (const step of (process.env.SEQ || "").split(",").filter(Boolean)) {
+  const [at, key, hold] = step.split(":");
+  setTimeout(async () => {
+    await page.keyboard.down(key);
+    await page.waitForTimeout(Number(hold || 100));
+    await page.keyboard.up(key);
+  }, Number(at));
+}
 // HOLD=KeyA,KeyM: hold these keys for the second half of the run (screenshot taken while held)
 const hold = (process.env.HOLD || "").split(",").filter(Boolean);
 await page.waitForTimeout((hold.length || process.env.TOUCH ? seconds / 2 : seconds) * 1000);

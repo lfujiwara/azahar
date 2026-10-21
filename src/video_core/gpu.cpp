@@ -333,6 +333,11 @@ void GPU::SetBufferSwap(u32 screen_id, const Service::GSP::FrameBufferInfo& info
 
     framebuffer.stride = info.stride;
     framebuffer.format = (framebuffer.format & 0xFFFF0000) | (info.format & 0xFFFF);
+    if (screen_id == 0) {
+        // Format bits 5 and 6 both clear select the top screen's 800px wide mode (GSP mode 1):
+        // the LCD scans 800 distinct lines instead of doubling 400.
+        framebuffer.height.Assign((info.format & 0x60) == 0 ? 800 : 400);
+    }
     framebuffer.active_fb = info.shown_fb & 0xFF;
 
     // Notify debugger about the buffer swap.
