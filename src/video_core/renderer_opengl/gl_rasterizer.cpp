@@ -576,8 +576,23 @@ bool RasterizerOpenGL::AccelerateDrawBatchInternal(bool is_indexed) {
                                       regs.pipeline.index_array.offset);
         std::tie(buffer_ptr, buffer_offset, std::ignore) = index_buffer.Map(index_buffer_size, 4);
         std::memcpy(buffer_ptr, index_data, index_buffer_size);
+        if constexpr (IsWebGL) {
+            // No base vertex on WebGL: rebase the indices on the CPU instead.
+            const u32 base = vertex_array_info.vs_input_index_min;
+            const auto rebase = [&](auto* indices) {
+                for (u32 i = 0; i < regs.pipeline.num_vertices; i++) {
+                    indices[i] -= base;
+                }
+            };
+            index_u16 ? rebase(reinterpret_cast<u16*>(buffer_ptr)) : rebase(buffer_ptr);
+        }
         index_buffer.Unmap(index_buffer_size);
 
+        if constexpr (IsWebGL) {
+            glDrawElements(primitive_mode, regs.pipeline.num_vertices,
+                           index_u16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_BYTE,
+                           reinterpret_cast<const void*>(buffer_offset));
+        } else
         glDrawRangeElementsBaseVertex(primitive_mode, vertex_array_info.vs_input_index_min,
                                       vertex_array_info.vs_input_index_max,
                                       regs.pipeline.num_vertices,

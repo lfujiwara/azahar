@@ -288,6 +288,19 @@ bool TextureRuntime::CopyTextures(Surface& source, Surface& dest,
     const GLenum dest_textarget =
         dest.texture_type == VideoCore::TextureType::CubeMap ? GL_TEXTURE_CUBE_MAP : GL_TEXTURE_2D;
 
+    if constexpr (IsWebGL) {
+        // No glCopyImageSubData on WebGL: a same-size nearest blit is equivalent.
+        for (const auto& copy : copies) {
+            const auto rect = [&](const VideoCore::Offset& o) {
+                return Common::Rectangle<u32>{o.x, o.y + copy.extent.height,
+                                              o.x + copy.extent.width, o.y};
+            };
+            BlitTextures(source, dest,
+                         {copy.src_level, copy.dst_level, copy.src_layer, copy.dst_layer,
+                          rect(copy.src_offset), rect(copy.dst_offset)});
+        }
+        return true;
+    }
     for (const auto& copy : copies) {
         glCopyImageSubData(source.Handle(), src_textarget, copy.src_level, copy.src_offset.x,
                            copy.src_offset.y, copy.src_layer, dest.Handle(), dest_textarget,

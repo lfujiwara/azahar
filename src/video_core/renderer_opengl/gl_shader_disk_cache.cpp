@@ -17,6 +17,7 @@
 #include "common/settings.h"
 #include "common/zstd_compression.h"
 #include "video_core/renderer_opengl/gl_shader_disk_cache.h"
+#include "video_core/renderer_opengl/gl_vars.h"
 
 namespace OpenGL {
 
@@ -112,7 +113,8 @@ ShaderDiskCache::ShaderDiskCache(u64 program_id, bool separable)
 
 std::optional<std::vector<ShaderDiskCacheRaw>> ShaderDiskCache::LoadTransferable() {
     const bool has_title_id = GetProgramID() != 0;
-    if (!Settings::values.use_hw_shader || !Settings::values.use_disk_shader_cache ||
+    // WebGL has no program binaries.
+    if (IsWebGL || !Settings::values.use_hw_shader || !Settings::values.use_disk_shader_cache ||
         !has_title_id) {
         return std::nullopt;
     }
