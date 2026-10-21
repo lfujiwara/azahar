@@ -251,40 +251,43 @@ void OpenGLState::Apply() const {
         glBindTexture(GL_TEXTURE_2D, color_buffer.texture_2d);
     }
 
-    // Shadow Images
-    if (image_shadow_buffer != cur_state.image_shadow_buffer) {
-        glBindImageTexture(ImageUnits::ShadowBuffer, image_shadow_buffer, 0, GL_FALSE, 0,
-                           GL_READ_WRITE, GL_R32UI);
-    }
+    // Shadow Images (WebGL has no image load/store; shadow rendering is skipped there)
+    if (!IsWebGL) {
+        if (image_shadow_buffer != cur_state.image_shadow_buffer) {
+            glBindImageTexture(ImageUnits::ShadowBuffer, image_shadow_buffer, 0, GL_FALSE, 0,
+                               GL_READ_WRITE, GL_R32UI);
+        }
 
-    if (image_shadow_texture_px != cur_state.image_shadow_texture_px) {
-        glBindImageTexture(ImageUnits::ShadowTexturePX, image_shadow_texture_px, 0, GL_FALSE, 0,
-                           GL_READ_ONLY, GL_R32UI);
-    }
+        if (image_shadow_texture_px != cur_state.image_shadow_texture_px) {
+            glBindImageTexture(ImageUnits::ShadowTexturePX, image_shadow_texture_px, 0, GL_FALSE, 0,
+                               GL_READ_ONLY, GL_R32UI);
+        }
 
-    if (image_shadow_texture_nx != cur_state.image_shadow_texture_nx) {
-        glBindImageTexture(ImageUnits::ShadowTextureNX, image_shadow_texture_nx, 0, GL_FALSE, 0,
-                           GL_READ_ONLY, GL_R32UI);
-    }
+        if (image_shadow_texture_nx != cur_state.image_shadow_texture_nx) {
+            glBindImageTexture(ImageUnits::ShadowTextureNX, image_shadow_texture_nx, 0, GL_FALSE, 0,
+                               GL_READ_ONLY, GL_R32UI);
+        }
 
-    if (image_shadow_texture_py != cur_state.image_shadow_texture_py) {
-        glBindImageTexture(ImageUnits::ShadowTexturePY, image_shadow_texture_py, 0, GL_FALSE, 0,
-                           GL_READ_ONLY, GL_R32UI);
-    }
+        if (image_shadow_texture_py != cur_state.image_shadow_texture_py) {
+            glBindImageTexture(ImageUnits::ShadowTexturePY, image_shadow_texture_py, 0, GL_FALSE, 0,
+                               GL_READ_ONLY, GL_R32UI);
+        }
 
-    if (image_shadow_texture_ny != cur_state.image_shadow_texture_ny) {
-        glBindImageTexture(ImageUnits::ShadowTextureNY, image_shadow_texture_ny, 0, GL_FALSE, 0,
-                           GL_READ_ONLY, GL_R32UI);
-    }
+        if (image_shadow_texture_ny != cur_state.image_shadow_texture_ny) {
+            glBindImageTexture(ImageUnits::ShadowTextureNY, image_shadow_texture_ny, 0, GL_FALSE, 0,
+                               GL_READ_ONLY, GL_R32UI);
+        }
 
-    if (image_shadow_texture_pz != cur_state.image_shadow_texture_pz) {
-        glBindImageTexture(ImageUnits::ShadowTexturePZ, image_shadow_texture_pz, 0, GL_FALSE, 0,
-                           GL_READ_ONLY, GL_R32UI);
-    }
+        if (image_shadow_texture_pz != cur_state.image_shadow_texture_pz) {
+            glBindImageTexture(ImageUnits::ShadowTexturePZ, image_shadow_texture_pz, 0, GL_FALSE, 0,
+                               GL_READ_ONLY, GL_R32UI);
+        }
 
-    if (image_shadow_texture_nz != cur_state.image_shadow_texture_nz) {
-        glBindImageTexture(ImageUnits::ShadowTextureNZ, image_shadow_texture_nz, 0, GL_FALSE, 0,
-                           GL_READ_ONLY, GL_R32UI);
+        if (image_shadow_texture_nz != cur_state.image_shadow_texture_nz) {
+            glBindImageTexture(ImageUnits::ShadowTextureNZ, image_shadow_texture_nz, 0, GL_FALSE, 0,
+                               GL_READ_ONLY, GL_R32UI);
+        }
+
     }
 
     // Framebuffer

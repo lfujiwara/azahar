@@ -603,6 +603,9 @@ bool RasterizerOpenGL::Draw(bool accelerate, bool is_indexed) {
     SyncDrawState();
 
     const bool shadow_rendering = regs.framebuffer.IsShadowRendering();
+    if (IsWebGL && shadow_rendering) {
+        return true; // ponytail: no image load/store on WebGL, shadow maps stay empty
+    }
     const bool has_stencil = regs.framebuffer.HasStencil();
 
     const bool write_color_fb = shadow_rendering || state.color_mask.red_enabled == GL_TRUE ||

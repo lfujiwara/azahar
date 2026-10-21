@@ -20,7 +20,7 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 800, height: 1000 } });
 const lines = [];
 page.on("console", (m) => lines.push(m.text()));
-page.on("pageerror", (e) => lines.push("[pageerror] " + e.message));
+page.on("pageerror", (e) => lines.push("[pageerror] " + e.message + "\n" + (e.stack || "").split("\n").slice(0, 12).join("\n")));
 const t0 = Date.now();
 await page.goto(`http://127.0.0.1:${process.env.PORT || 8302}/index.html?rom=${encodeURIComponent(rom)}&${extra}`);
 await page.waitForTimeout(seconds * 1000);
