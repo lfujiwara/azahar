@@ -50,7 +50,9 @@ void Init() {
 
     sdl = SDL::Init();
 
+#ifndef __EMSCRIPTEN__
     udp = CemuhookUDP::Init();
+#endif
 }
 
 void Shutdown() {

@@ -29,6 +29,30 @@
     printErr: log,
     setStatus: (s) => (document.getElementById("status").textContent = s),
     async onRuntimeInitialized() {
+      // Emulator user data (config, NAND, SDMC, saves) persists in IndexedDB.
+      const home = "/home/web_user";
+      FS.mkdirTree(home);
+      FS.mount(IDBFS, {}, home);
+      await new Promise((ok) => FS.syncfs(true, ok));
+      const count = (dir) => {
+        let n = 0;
+        for (const e of FS.readdir(dir)) {
+          if (e === "." || e === "..") continue;
+          const p = dir + "/" + e;
+          n += FS.isDir(FS.stat(p).mode) ? count(p) : 1;
+        }
+        return n;
+      };
+      log(`[web] persisted files: ${count(home)}`);
+      let syncing = false;
+      window.azaharSync = () =>
+        new Promise((ok) => {
+          if (syncing) return ok();
+          syncing = true;
+          FS.syncfs(false, () => ((syncing = false), ok()));
+        });
+      setInterval(window.azaharSync, 5000);
+      addEventListener("pagehide", window.azaharSync);
       const buf = new Uint8Array(await (await fetch(rom)).arrayBuffer());
       const name = "/roms/" + rom.split("/").pop();
       FS.mkdirTree("/roms");

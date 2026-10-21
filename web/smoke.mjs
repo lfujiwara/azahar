@@ -22,8 +22,15 @@ const lines = [];
 page.on("console", (m) => lines.push(m.text()));
 page.on("pageerror", (e) => lines.push("[pageerror] " + e.message));
 const t0 = Date.now();
-await page.goto(`http://127.0.0.1:8302/index.html?rom=${encodeURIComponent(rom)}&${extra}`);
-await page.waitForTimeout(seconds * 1000);
+await page.goto(`http://127.0.0.1:${process.env.PORT || 8302}/index.html?rom=${encodeURIComponent(rom)}&${extra}`);
+// HOLD=KeyA,KeyM: hold these keys for the second half of the run (screenshot taken while held)
+const hold = (process.env.HOLD || "").split(",").filter(Boolean);
+await page.waitForTimeout((hold.length ? seconds / 2 : seconds) * 1000);
+if (hold.length) {
+  await page.locator("#canvas").focus();
+  for (const k of hold) await page.keyboard.down(k);
+  await page.waitForTimeout((seconds / 2) * 1000);
+}
 const canvas = page.locator("#canvas");
 const png = await canvas.screenshot();
 writeFileSync(`shots/${tag}.png`, png);
