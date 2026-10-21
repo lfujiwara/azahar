@@ -43,7 +43,7 @@ const stats = await page.evaluate(async (b64) => {
   }
   return { w: img.width, h: img.height, litFraction: lit / (d.length / 4), colors: colors.size };
 }, png.toString("base64"));
-const fps = await page.evaluate(() => window.azaharFps ?? null);
+const fps = await page.evaluate(() => [window.azaharFps ?? null, window.azaharSpeed ?? null]);
 writeFileSync(`shots/${tag}.log`, lines.join("\n"));
 console.log(JSON.stringify({ tag, ms: Date.now() - t0, ...stats, fps, logLines: lines.length }));
 console.log(lines.slice(-25).join("\n"));

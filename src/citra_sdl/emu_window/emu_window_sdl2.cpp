@@ -252,7 +252,7 @@ void EmuWindow_SDL2::UpdateFramerateCounter() {
                         results.emulation_speed * 100.0f);
         SDL_SetWindowTitle(render_window, title.c_str());
 #ifdef __EMSCRIPTEN__
-        EM_ASM({ globalThis.azaharFps = { fps: $0, speed: $1 }; }, results.game_fps,
+        EM_ASM({ globalThis.azaharFps = $0; globalThis.azaharSpeed = $1; }, results.game_fps,
                results.emulation_speed * 100.0);
 #endif
         last_time = current_time;
