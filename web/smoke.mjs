@@ -15,7 +15,7 @@ const browser = await chromium.launch({
   executablePath:
     process.env.CHROME ||
     `${process.env.HOME}/Library/Caches/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-mac-arm64/chrome-headless-shell`,
-  args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"],
+  args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", "--autoplay-policy=no-user-gesture-required"],
 });
 const page = await browser.newPage({ viewport: { width: 800, height: 1000 } });
 const lines = [];
@@ -31,6 +31,24 @@ if (hold.length) {
   for (const k of hold) await page.keyboard.down(k);
   await page.waitForTimeout((seconds / 2) * 1000);
 }
+// Audio probe: wrap SDL's ScriptProcessor callback for 2 s and measure what it outputs.
+const audio = await page.evaluate(async () => {
+  const n = window.Module?.SDL2?.audio?.scriptProcessorNode;
+  if (!n) return null;
+  const fn = n.onaudioprocess;
+  const a = { state: Module.SDL2.audioContext.state, blocks: 0, loud: 0, peak: 0 };
+  n.onaudioprocess = (e) => {
+    fn(e);
+    a.blocks++;
+    let m = 0;
+    for (const v of e.outputBuffer.getChannelData(0)) m = Math.max(m, Math.abs(v));
+    if (m > 0.01) a.loud++;
+    a.peak = Math.max(a.peak, m);
+  };
+  await new Promise((r) => setTimeout(r, 2000));
+  n.onaudioprocess = fn;
+  return a;
+});
 const canvas = page.locator("#canvas");
 const png = await canvas.screenshot();
 writeFileSync(`shots/${tag}.png`, png);
@@ -52,6 +70,6 @@ const stats = await page.evaluate(async (b64) => {
 }, png.toString("base64"));
 const fps = await page.evaluate(() => [window.azaharFps ?? null, window.azaharSpeed ?? null]);
 writeFileSync(`shots/${tag}.log`, lines.join("\n"));
-console.log(JSON.stringify({ tag, ms: Date.now() - t0, ...stats, fps, logLines: lines.length }));
+console.log(JSON.stringify({ tag, ms: Date.now() - t0, ...stats, fps, audio, logLines: lines.length }));
 console.log(lines.slice(-25).join("\n"));
 await browser.close();

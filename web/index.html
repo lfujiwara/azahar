@@ -44,6 +44,12 @@
         return n;
       };
       log(`[web] persisted files: ${count(home)}`);
+      // libctru's ndspInit refuses to start without a DSP firmware file; HLE audio ignores its contents.
+      const dspfirm = home + "/.local/share/azahar-emu/sdmc/3ds/dspfirm.cdc";
+      if (!FS.analyzePath(dspfirm).exists) {
+        FS.mkdirTree(dspfirm.slice(0, dspfirm.lastIndexOf("/")));
+        FS.writeFile(dspfirm, new Uint8Array(0x300));
+      }
       let syncing = false;
       window.azaharSync = () =>
         new Promise((ok) => {
