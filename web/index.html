@@ -93,8 +93,8 @@
       }
       // ?set=Renderer.graphics_api=0,Core.use_cpu_jit=0 -> sdl2-config.ini overrides
       const sections = {};
-      // Software renderer by default until the WebGL2 port of the GL renderer lands.
-      const overrides = ["Renderer.graphics_api=0", ...(params.get("set") || "").split(",")];
+      // WebGL2 renderer by default; Renderer.graphics_api=0 selects the software renderer.
+      const overrides = ["Renderer.graphics_api=1", ...(params.get("set") || "").split(",")];
       for (const kv of overrides.filter(Boolean)) {
         const [path, value] = kv.split("=");
         const [sec, key] = path.split(".");
